@@ -1,0 +1,834 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Archero Klon - Stage 30 (Unlock Audio Fix)</title>
+    <style>
+        body {
+            margin: 0;
+            display: flex;
+            align-items: center;
+            height: 100vh;
+            width: 100vw;
+            color: white;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            flex-direction: column;
+            overflow: hidden;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+            
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            transition: background-image 0.5s ease-in-out;
+        }
+
+        body.menu-mode {
+            justify-content: center;
+            background-image: url('assets/Homescreen.jpg');
+        }
+
+        body.game-mode {
+            justify-content: flex-start;
+            padding-top: 50px; 
+            background-image: url('assets/gameplayBackground.jpg');
+        }
+
+        canvas {
+            background-color: transparent; 
+            max-width: 100%;
+            max-height: 85vh;
+            border-radius: 12px;
+            touch-action: none; 
+            transition: all 0.3s ease;
+        }
+        
+        canvas.ingame {
+            background-color: #2a2a2a; 
+            box-shadow: 0 0 50px rgba(0,0,0,0.8);
+            border: 2px solid #444;
+        }
+
+        #ui-container {
+            position: absolute;
+            top: 10px;
+            left: 0; 
+            right: 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            pointer-events: none;
+            text-shadow: 2px 2px 4px black;
+            font-weight: bold;
+            z-index: 20;
+            max-width: 600px; 
+            margin: 0 auto;
+            box-sizing: border-box;
+            padding: 0 20px; 
+        }
+        #hearts { font-size: 24px; color: #ff4757; letter-spacing: 2px; }
+        .stats { font-size: 16px; text-align: right; line-height: 1.4; }
+        .hs-label { font-size: 12px; color: #ccc; }
+        #skills { font-size: 11px; color: #ffd32a; margin-top: 2px; text-transform: uppercase; letter-spacing: 1px;}
+
+        /* --- LOADING SCREEN --- */
+        #loading-screen {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-color: #111;
+            z-index: 9999;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            color: #0be881;
+            font-family: monospace;
+            font-size: 20px;
+            transition: opacity 0.5s;
+        }
+        .spinner {
+            width: 40px; height: 40px;
+            border: 4px solid #333;
+            border-top: 4px solid #0be881;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* --- Tutorial Overlay --- */
+        #tutorial-overlay {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85);
+            backdrop-filter: blur(5px);
+            z-index: 100;
+            display: none; 
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+        .tutorial-card {
+            background: linear-gradient(145deg, #2a2a2a, #222);
+            border: 1px solid #444;
+            padding: 30px;
+            border-radius: 20px;
+            max-width: 80%;
+            color: #eee;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+            text-align: left;
+        }
+        .tutorial-card h2 { margin-top: 0; color: #0be881; border-bottom: 1px solid #444; padding-bottom: 10px;}
+        .tutorial-card ul { padding-left: 20px; line-height: 1.6; list-style: none;}
+        .tutorial-card li { margin-bottom: 12px; display: flex; align-items: center; }
+        .tutorial-icon { width: 30px; height: 30px; margin-right: 15px; object-fit: contain; }
+        .key-highlight { color: #ffd32a; font-weight: bold; }
+        .close-btn {
+            margin-top: 20px;
+            background: #ff4757;
+            border: none;
+            color: white;
+            padding: 10px 30px;
+            border-radius: 50px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            width: 100%;
+            transition: transform 0.1s;
+        }
+        .close-btn:active { transform: scale(0.95); }
+
+        /* --- RESTART BUTTON --- */
+        #restart-overlay {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85);
+            z-index: 200;
+            display: none; 
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+        #restart-btn {
+            background: linear-gradient(to bottom, #ff6b6b, #ee5253);
+            border: 3px solid white;
+            padding: 20px 50px;
+            font-size: 24px;
+            font-weight: bold;
+            color: white;
+            border-radius: 50px;
+            box-shadow: 0 10px 30px rgba(255, 71, 87, 0.5);
+            cursor: pointer;
+            text-transform: uppercase;
+        }
+        #restart-btn:active { transform: scale(0.95); }
+    </style>
+</head>
+<body class="menu-mode">
+
+    <div id="loading-screen">
+        <div class="spinner"></div>
+        <div id="loading-text">LADE ASSETS...</div>
+    </div>
+
+    <div id="ui-container" style="display:none;">
+        <div id="hearts">❤❤❤</div>
+        <div class="stats">
+            <div>STAGE <span id="roomCount" style="color:#fff; font-size:20px;">1</span></div>
+            <div id="skills"></div>
+            <div class="hs-label">HIGHSCORE: <span id="highscoreCount">1</span></div>
+        </div>
+    </div>
+    
+    <canvas id="gameCanvas" width="600" height="800"></canvas>
+
+    <div id="tutorial-overlay">
+        <div class="tutorial-card">
+            <h2>SPIELANLEITUNG</h2>
+            <ul>
+                <li><span class="key-highlight">Bewegen:</span> Tippen und Ziehen.</li>
+                <li><span class="key-highlight">Schießen:</span> Stehen bleiben.</li>
+                <li><span class="key-highlight">Mauer bauen/zerschlagen:</span> Doppelt tippen.</li>
+                <br>
+                <li><img src="assets/zwei.png" class="tutorial-icon"> +2 Kugeln (Lvl 5 & 17)</li>
+                <li><img src="assets/band.png" class="tutorial-icon"> Abprallen (Lvl 10)</li>
+                <li><img src="assets/Schwert.png" class="tutorial-icon"> + Schaden</li>
+                <li><img src="assets/herz.png" class="tutorial-icon"> Heilung</li>
+            </ul>
+            <button class="close-btn" onclick="closeTutorial()">VERSTANDEN</button>
+        </div>
+    </div>
+
+    <div id="restart-overlay">
+        <h1 style="color: #ff4757; font-size: 50px; margin-bottom: 10px; text-shadow: 0 0 10px black;">GAME OVER</h1>
+        <div id="final-score" style="color: white; font-size: 20px; margin-bottom: 40px;">Erreicht: Raum 1</div>
+        <button id="restart-btn" onclick="triggerRestart()">NEUSTART</button>
+    </div>
+
+<script>
+    // --- AUDIO INIT ---
+    const bgMusic = new Audio('assets/techno.mp3'); 
+    bgMusic.loop = true; 
+    bgMusic.volume = 1.0; 
+    bgMusic.preload = 'auto';
+
+    // SFX (Sehr leise eingestellt)
+    const sfxTeleport = new Audio('assets/magier.mp3'); sfxTeleport.volume = 0.15;
+    const sfxMainShot = new Audio('assets/mainshot.mp3'); sfxMainShot.volume = 0.3;
+    const sfxAlienShot = new Audio('assets/alienshot.mp3'); sfxAlienShot.volume = 0.3;
+    const sfxMagierShot = new Audio('assets/Magiershot.mp3'); sfxMagierShot.volume = 0.3;
+
+    // --- DEIN FIX: UNLOCK AUDIO ON FIRST TOUCH ---
+    // Dies fängt den allerersten Klick/Touch auf der Seite ab
+    let audioUnlocked = false;
+
+    function unlockAudio() {
+        if (!audioUnlocked) {
+            bgMusic.play().then(() => {
+                console.log("Audio Unlocked & Playing");
+                audioUnlocked = true;
+            }).catch((e) => {
+                console.log("Unlock attempt failed (waiting for interaction): " + e);
+            });
+        }
+    }
+
+    // Wir hören auf Touch und Mousedown am gesamten Dokument
+    document.addEventListener('touchstart', unlockAudio, { once: true });
+    document.addEventListener('click',  unlockAudio, { once: true });
+    // ---------------------------------------------
+
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const uiContainer = document.getElementById('ui-container');
+    const roomCountDisplay = document.getElementById('roomCount');
+    const highscoreDisplay = document.getElementById('highscoreCount');
+    const heartsDisplay = document.getElementById('hearts');
+    const skillsDisplay = document.getElementById('skills');
+    const tutorialOverlay = document.getElementById('tutorial-overlay');
+    const loadingScreen = document.getElementById('loading-screen');
+    const loadingText = document.getElementById('loading-text');
+    const restartOverlay = document.getElementById('restart-overlay');
+    const finalScoreDisplay = document.getElementById('final-score');
+
+    function playSound(audioObj) {
+        if (!audioObj) return;
+        const clone = audioObj.cloneNode();
+        clone.volume = audioObj.volume; 
+        clone.play().catch(e => {}); 
+    }
+
+    // --- Assets & Loading System ---
+    const assets = {
+        home: 'assets/Homescreen.jpg',
+        gameBG: 'assets/gameplayBackground.jpg',
+        block1: 'assets/block1.png',
+        block2: 'assets/block2.png',
+        block3: 'assets/block3.png',
+        block4: 'assets/block4.png',
+        herz: 'assets/herz.png',
+        schwert: 'assets/Schwert.png',
+        zwei: 'assets/zwei.png',
+        band: 'assets/band.png',
+        magier: 'assets/magier.png',
+        polizei: 'assets/polizei.png',
+        arzt: 'assets/arzt.png',
+        alien: 'assets/alien.png',
+        oben: 'assets/oben.png',
+        unten: 'assets/unten.png'
+    };
+
+    const loadedImages = {};
+    const wallImages = []; 
+    let assetsLoaded = 0;
+    
+    // Total Assets = Bilder + 1 (Musik)
+    const totalAssets = Object.keys(assets).length + 1;
+
+    function assetLoaded() {
+        assetsLoaded++;
+        if (assetsLoaded >= totalAssets) {
+            finishLoading();
+        }
+    }
+
+    function finishLoading() {
+        wallImages.push(loadedImages['block1'], loadedImages['block2'], loadedImages['block3'], loadedImages['block4']);
+        generateLevel();
+        
+        setTimeout(() => {
+            loadingScreen.style.opacity = '0';
+            setTimeout(() => { 
+                loadingScreen.style.display = 'none'; 
+                
+                // Versuch Musik zu starten, falls sie nicht schon durch Klick gestartet wurde
+                if (!audioUnlocked) {
+                    bgMusic.play().then(() => { audioUnlocked = true; }).catch(e => {});
+                }
+                
+                requestAnimationFrame(gameLoop); 
+            }, 500);
+        }, 500); 
+    }
+
+    // 1. Bilder laden
+    for (const [key, src] of Object.entries(assets)) {
+        const img = new Image();
+        img.onload = assetLoaded; 
+        img.onerror = assetLoaded; 
+        img.src = src;
+        loadedImages[key] = img;
+    }
+
+    // 2. Musik laden
+    bgMusic.addEventListener('canplaythrough', assetLoaded, { once: true });
+    bgMusic.addEventListener('error', assetLoaded, { once: true }); 
+    bgMusic.load();
+
+    // Fallback Timeout
+    setTimeout(() => {
+        if (loadingScreen.style.display !== 'none') {
+            if(wallImages.length === 0 && loadedImages['block1']) wallImages.push(loadedImages['block1']);
+            finishLoading();
+        }
+    }, 8000);
+
+    // --- Highscore ---
+    let storedHighscore = localStorage.getItem('archero_highscore') || 1;
+    highscoreDisplay.innerText = storedHighscore;
+
+    // --- Config ---
+    const config = {
+        hitboxSize: 30, 
+        visualWidth: 50, 
+        visualHeight: 72, 
+
+        playerMaxHP: 3,
+        playerSpeed: 6, 
+        bulletSpeed: 14.4, bulletSize: 10, shootCooldown: 20,
+        
+        enemyMeleeSpeed: 2.16, enemyRangedSpeed: 1.2, enemyTeleportSpeed: 0.96, enemyCardinalSpeed: 1.44, 
+        enemyWidth: 37, enemyHeight: 46,
+        enemyBulletSpeed: 4.8, enemySlowBulletSpeed: 3.0, enemyShootInterval: 120,
+        
+        doorSize: 70, wallGridSize: 50, borderThickness: 10 
+    };
+
+    // --- State ---
+    let gameState = {
+        isMenu: true,
+        isTutorialOpen: false,
+        roomLevel: 1,
+        isDoorOpen: false,
+        gameOver: false,
+        globalSpeed: 1.0
+    };
+
+    // --- Buttons ---
+    const startButton = { w: 260, h: 80, x: 0, y: 0, radius: 40 }; 
+    const infoButton = { x: 0, y: 0, radius: 30 }; 
+
+    function updateUiPositions() {
+        startButton.x = canvas.width / 2 - startButton.w / 2;
+        startButton.y = canvas.height / 2 + 120;
+        infoButton.x = canvas.width / 2;
+        infoButton.y = startButton.y - 60; 
+    }
+
+    // --- Input Logic ---
+    let lastTapTime = 0;
+    const DOUBLE_TAP_DELAY = 300;
+    let lastTapPos = { x: 0, y: 0 };
+
+    class Joystick {
+        constructor() { this.active = false; this.origin = { x: 0, y: 0 }; this.current = { x: 0, y: 0 }; this.radius = 50; this.input = { x: 0, y: 0 }; }
+        start(x, y) { if (gameState.gameOver || gameState.isMenu) return; this.active = true; this.origin = { x, y }; this.current = { x, y }; this.input = { x: 0, y: 0 }; }
+        move(x, y) {
+            if (!this.active) return;
+            this.current = { x, y };
+            const dx = x - this.origin.x; const dy = y - this.origin.y;
+            const distance = Math.sqrt(dx*dx + dy*dy);
+            if (distance > 0) { this.input.x = dx / distance; this.input.y = dy / distance; }
+        }
+        end() { this.active = false; this.input = { x: 0, y: 0 }; }
+        draw() {
+            if (!this.active) return;
+            ctx.beginPath(); ctx.arc(this.origin.x, this.origin.y, this.radius, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.1)'; ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)'; ctx.fill(); ctx.stroke();
+            let stickX = this.current.x; let stickY = this.current.y;
+            const dx = this.current.x - this.origin.x; const dy = this.current.y - this.origin.y;
+            const distance = Math.sqrt(dx*dx + dy*dy);
+            if (distance > this.radius) {
+                const angle = Math.atan2(dy, dx);
+                stickX = this.origin.x + Math.cos(angle) * this.radius;
+                stickY = this.origin.y + Math.sin(angle) * this.radius;
+            }
+            ctx.beginPath(); ctx.arc(stickX, stickY, 15, 0, Math.PI * 2); ctx.fillStyle = 'rgba(255, 255, 255, 0.8)'; ctx.fill();
+        }
+    }
+    const joystick = new Joystick();
+
+    function getEventPos(e) {
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / rect.width; const scaleY = canvas.height / rect.height;
+        let clientX, clientY;
+        if (e.changedTouches) { clientX = e.changedTouches[0].clientX; clientY = e.changedTouches[0].clientY; } 
+        else { clientX = e.clientX; clientY = e.clientY; }
+        return { x: (clientX - rect.left) * scaleX, y: (clientY - rect.top) * scaleY };
+    }
+    
+    function handleInputStart(e) {
+        if (gameState.gameOver) return;
+        if (e.target.closest('#tutorial-overlay')) return;
+        if (!gameState.isMenu) e.preventDefault();
+        
+        const pos = getEventPos(e);
+        updateUiPositions();
+
+        if (gameState.isMenu) {
+            if (gameState.isTutorialOpen) return;
+            
+            // START BUTTON
+            if (pos.x > startButton.x && pos.x < startButton.x + startButton.w &&
+                pos.y > startButton.y && pos.y < startButton.y + startButton.h) {
+                
+                // Beim Klick auf Start setzen wir die Musik zurück auf Anfang
+                bgMusic.currentTime = 0;
+                if (!audioUnlocked) {
+                    bgMusic.play();
+                    audioUnlocked = true;
+                }
+
+                startGame(); 
+                return;
+            }
+
+            const distInfo = Math.hypot(pos.x - infoButton.x, pos.y - infoButton.y);
+            if (distInfo < infoButton.radius + 10) { openTutorial(); return; }
+            return;
+        }
+
+        const currentTime = new Date().getTime();
+        const tapLength = currentTime - lastTapTime;
+        const dist = Math.hypot(pos.x - lastTapPos.x, pos.y - lastTapPos.y);
+        const isInsideCanvas = pos.x >= 0 && pos.x <= canvas.width && pos.y >= 0 && pos.y <= canvas.height;
+
+        if (isInsideCanvas && tapLength < DOUBLE_TAP_DELAY && tapLength > 0 && dist < 50) {
+            joystick.end(); handleBuild(pos.x, pos.y); lastTapTime = 0; 
+        } else {
+            joystick.start(pos.x, pos.y); lastTapTime = currentTime; lastTapPos = {x: pos.x, y: pos.y};
+        }
+    }
+
+    function handleBuild(x, y) {
+        const gridX = Math.floor(x / config.wallGridSize) * config.wallGridSize;
+        const gridY = Math.floor(y / config.wallGridSize) * config.wallGridSize;
+        const existingWallIndex = walls.findIndex(w => w.x === gridX && w.y === gridY);
+        if (existingWallIndex !== -1) {
+            if (walls[existingWallIndex].width === config.wallGridSize && walls[existingWallIndex].height === config.wallGridSize) {
+                walls.splice(existingWallIndex, 1);
+            }
+        } else {
+            const newWallRect = { x: gridX, y: gridY, width: config.wallGridSize, height: config.wallGridSize };
+            const hitsPlayer = checkCollision(newWallRect, player);
+            const hitsEnemy = enemies.some(en => checkCollision(newWallRect, en));
+            const hitsDoor = checkCollision(newWallRect, door);
+            const hitsItem = items.some(it => checkCollision(newWallRect, {x:it.x, y:it.y, width:it.size, height:it.size}));
+            const hitsBorder = walls.some(w => checkCollision(newWallRect, w));
+            if (!hitsPlayer && !hitsEnemy && !hitsDoor && !hitsItem && !hitsBorder) { 
+                const randomTexture = wallImages.length > 0 ? wallImages[Math.floor(Math.random() * wallImages.length)] : null;
+                walls.push(new Wall(gridX, gridY, config.wallGridSize, config.wallGridSize, randomTexture)); 
+            }
+        }
+    }
+
+    window.addEventListener('mousedown', handleInputStart);
+    window.addEventListener('touchstart', handleInputStart, {passive: false});
+    window.addEventListener('mousemove', e => { if(joystick.active) joystick.move(getEventPos(e).x, getEventPos(e).y); });
+    window.addEventListener('touchmove', e => { if(joystick.active) { e.preventDefault(); joystick.move(getEventPos(e).x, getEventPos(e).y); } }, {passive: false});
+    window.addEventListener('mouseup', () => joystick.end());
+    window.addEventListener('touchend', (e) => { joystick.end(); });
+
+    function openTutorial() { gameState.isTutorialOpen = true; tutorialOverlay.style.display = 'flex'; }
+    window.closeTutorial = function() { gameState.isTutorialOpen = false; tutorialOverlay.style.display = 'none'; }
+    
+    function startGame() { 
+        gameState.isMenu = false; uiContainer.style.display = 'flex'; 
+        document.body.classList.remove('menu-mode'); document.body.classList.add('game-mode'); canvas.classList.add('ingame');
+        if(walls.length < 6) generateLevel();
+    }
+
+    // --- RESTART MIT PAGE RELOAD ---
+    window.triggerRestart = function() {
+        window.location.reload();
+    };
+
+    class Wall { 
+        constructor(x, y, w, h, texture = null) { this.x = x; this.y = y; this.width = w; this.height = h; this.texture = texture; } 
+        draw() { 
+            if (this.texture && this.texture.complete && this.texture.naturalWidth > 0) { ctx.drawImage(this.texture, this.x, this.y, this.width, this.height); } 
+            else { ctx.fillStyle = '#444'; ctx.fillRect(this.x, this.y, this.width, this.height); ctx.strokeStyle = '#222'; ctx.strokeRect(this.x, this.y, this.width, this.height); }
+        } 
+    }
+
+    class ItemPickup { 
+        constructor(x, y, type) { this.x = x; this.y = y; this.type = type; this.size = 35; this.markedForDeletion = false; this.floatOffset = 0; } 
+        update(dt) { 
+            this.floatOffset = Math.sin(Date.now() / 300) * 5; 
+            if (checkCollision({x: this.x, y: this.y, width: this.size, height: this.size}, player)) { 
+                if (this.type === 'heart') { if (player.health < config.playerMaxHP) { player.health++; updateHeartDisplay(); } } 
+                else if (this.type === 'multishot') { player.skills.multishot = true; showSkillText("+2!"); } 
+                else if (this.type === 'sideshot') { player.skills.sideshot = true; showSkillText("+2!"); }
+                else if (this.type === 'ricochet') { player.skills.ricochet = true; showSkillText("Abprallen!"); } 
+                else if (this.type === 'damage') { player.damageMultiplier *= 1.2; showSkillText("+ Schaden"); }
+                updateSkillsDisplay(); this.markedForDeletion = true; 
+            } 
+        } 
+        draw() { 
+            const drawY = this.y + this.floatOffset; 
+            let img = null;
+            if (this.type === 'heart') img = loadedImages['herz'];
+            else if (this.type === 'multishot' || this.type === 'sideshot') img = loadedImages['zwei'];
+            else if (this.type === 'ricochet') img = loadedImages['band'];
+            else if (this.type === 'damage') img = loadedImages['schwert'];
+
+            if (img && img.complete) {
+                ctx.drawImage(img, this.x, drawY, this.size, this.size);
+            } else {
+                ctx.font = "20px Arial"; ctx.fillStyle = 'white'; ctx.fillText("?", this.x + 10, drawY + 20);
+            }
+        } 
+    }
+    
+    class Player { 
+        constructor(x, y) { 
+            this.x = x; this.y = y; 
+            this.width = config.hitboxSize; 
+            this.height = config.hitboxSize; 
+            
+            this.health = config.playerMaxHP; 
+            this.isMoving = false; this.shootTimer = 0; this.invulnerableTimer = 0; this.damageMultiplier = 1.0; 
+            this.skills = { multishot: false, ricochet: false, sideshot: false };
+            
+            this.frameX = 0; 
+            this.facing = 'down'; 
+            this.animTimer = 0;
+            this.animSpeed = 10; 
+        } 
+
+        update(dt) { 
+            if (this.invulnerableTimer > 0) this.invulnerableTimer -= dt; 
+            const dx = joystick.input.x * config.playerSpeed * dt; 
+            const dy = joystick.input.y * config.playerSpeed * dt; 
+            
+            this.x += dx; if (checkWallCollision(this)) this.x -= dx; 
+            this.y += dy; if (checkWallCollision(this)) this.y -= dy; 
+            
+            this.x = Math.max(0, Math.min(canvas.width - this.width, this.x)); 
+            this.y = Math.max(0, Math.min(canvas.height - this.height, this.y)); 
+            
+            this.isMoving = (Math.abs(dx) > 0.01 || Math.abs(dy) > 0.01); 
+
+            if (this.isMoving) {
+                if (dy < 0) this.facing = 'up';
+                else if (dy > 0) this.facing = 'down';
+
+                this.animTimer += dt;
+                if (this.animTimer > this.animSpeed) {
+                    if (this.frameX < 1) this.frameX = 1; else this.frameX++;
+                    if (this.frameX > 2) this.frameX = 1;
+                    this.animTimer = 0;
+                }
+            } else {
+                this.frameX = 0; 
+            }
+
+            if (!this.isMoving && enemies.length > 0) { 
+                if (this.shootTimer <= 0) { this.shoot(); this.shootTimer = config.shootCooldown; } 
+                else { this.shootTimer -= dt; } 
+            } else { 
+                this.shootTimer = Math.max(this.shootTimer - (1 * dt), 5); 
+            } 
+        } 
+        
+        takeDamage() { if (this.invulnerableTimer > 0) return; this.health--; this.invulnerableTimer = 60; updateHeartDisplay(); if (this.health <= 0) endGame(); } 
+        
+        shoot() { 
+            const nearestEnemy = this.findNearestEnemy(); if (!nearestEnemy) return; 
+            const dx = nearestEnemy.x + nearestEnemy.width/2 - (this.x + this.width/2); const dy = nearestEnemy.y + nearestEnemy.height/2 - (this.y + this.height/2); 
+            const angle = Math.atan2(dy, dx); const bounces = this.skills.ricochet ? 1 : 0; const dmg = 1 * this.damageMultiplier;
+            
+            playSound(sfxMainShot);
+
+            playerBullets.push(new Bullet(this.x + this.width/2, this.y + this.height/2, Math.cos(angle) * config.bulletSpeed, Math.sin(angle) * config.bulletSpeed, true, bounces, dmg, '#ff3838')); 
+            if (this.skills.multishot) { 
+                const angleLeft = angle - Math.PI / 4; const angleRight = angle + Math.PI / 4; 
+                playerBullets.push(new Bullet(this.x + this.width/2, this.y + this.height/2, Math.cos(angleLeft) * config.bulletSpeed, Math.sin(angleLeft) * config.bulletSpeed, true, bounces, dmg, '#ff3838')); 
+                playerBullets.push(new Bullet(this.x + this.width/2, this.y + this.height/2, Math.cos(angleRight) * config.bulletSpeed, Math.sin(angleRight) * config.bulletSpeed, true, bounces, dmg, '#ff3838')); 
+            }
+            if (this.skills.sideshot) {
+                const angleLeft90 = angle - Math.PI / 2; const angleRight90 = angle + Math.PI / 2;
+                playerBullets.push(new Bullet(this.x + this.width/2, this.y + this.height/2, Math.cos(angleLeft90) * config.bulletSpeed, Math.sin(angleLeft90) * config.bulletSpeed, true, bounces, dmg, '#ff3838'));
+                playerBullets.push(new Bullet(this.x + this.width/2, this.y + this.height/2, Math.cos(angleRight90) * config.bulletSpeed, Math.sin(angleRight90) * config.bulletSpeed, true, bounces, dmg, '#ff3838'));
+            }
+        } 
+        findNearestEnemy() { let nearest = null; let minDistance = Infinity; enemies.forEach(enemy => { if (!isLineOfSightClear(this, enemy)) return; const dist = (enemy.x - this.x)**2 + (enemy.y - this.y)**2; if (dist < minDistance) { minDistance = dist; nearest = enemy; } }); return nearest; } 
+        
+        draw() { 
+            if (this.invulnerableTimer > 0 && Math.floor(Date.now() / 100) % 2 === 0) return; 
+            
+            let sprite = (this.facing === 'up') ? loadedImages['oben'] : loadedImages['unten'];
+            
+            if (!sprite) {
+                ctx.fillStyle = '#00d2ff'; ctx.fillRect(this.x, this.y, this.width, this.height);
+                return;
+            }
+
+            const frameWidth = 100;
+            const sx = this.frameX * frameWidth; 
+
+            const cx = this.x + this.width / 2;
+            const cy = this.y + this.height / 2;
+
+            const drawX = cx - (config.visualWidth / 2);
+            const drawY = cy - (config.visualHeight / 2) - 10; 
+
+            ctx.drawImage(sprite, sx, 0, frameWidth, sprite.height, drawX, drawY, config.visualWidth, config.visualHeight);
+        } 
+    }
+    
+    class Enemy { 
+        constructor(x, y, type) { 
+            this.x = x; this.y = y; 
+            this.width = config.enemyWidth; 
+            this.height = config.enemyHeight; 
+            this.type = type; this.state = 'moving'; this.timer = 0; this.shotsFired = 0; 
+            this.maxHealth = 0;
+            if (type === 'melee') { this.maxHealth = 3; this.speed = config.enemyMeleeSpeed; this.img = loadedImages['arzt']; } 
+            else if (type === 'ranged') { this.maxHealth = 2; this.speed = config.enemyRangedSpeed; this.img = loadedImages['polizei']; this.timer = Math.random() * config.enemyShootInterval; } 
+            else if (type === 'teleport') { this.maxHealth = 5.6; this.speed = config.enemyTeleportSpeed; this.img = loadedImages['magier']; this.timer = 120; } 
+            else if (type === 'cardinal') { this.maxHealth = 6; this.speed = config.enemyCardinalSpeed; this.img = loadedImages['alien']; this.timer = 120; } 
+            this.health = this.maxHealth;
+        } 
+        update(dt) { 
+            if (gameState.gameOver) return; 
+            
+            if (this.type === 'cardinal') { 
+                if (this.state === 'moving') { const angle = Math.atan2(player.y - this.y, player.x - this.x); this.move(Math.cos(angle) * this.speed * dt, Math.sin(angle) * this.speed * dt); this.timer -= dt; if (this.timer <= 0) { this.state = 'shooting'; this.shotsFired = 0; this.timer = 30; } } 
+                else if (this.state === 'shooting') { this.timer -= dt; if (this.timer <= 0) { const bounce = gameState.roomLevel >= 20 ? 1 : 0; this.fireCardinalShot(bounce); this.shotsFired++; this.timer = 15; if (this.shotsFired >= 3) { this.state = 'moving'; this.timer = 120; } } } 
+            } else if (this.type === 'teleport') { 
+                this.timer -= dt; 
+                if (this.timer <= 0) { this.doTeleport(); this.timer = 120; } 
+                const angle = Math.atan2(player.y - this.y, player.x - this.x); 
+                this.move(Math.cos(angle) * this.speed * dt, Math.sin(angle) * this.speed * dt); 
+                if (checkCollision(this, player)) player.takeDamage(); 
+            } else if (this.type === 'melee') { 
+                const angle = Math.atan2(player.y - this.y, player.x - this.x); this.move(Math.cos(angle) * this.speed * dt, Math.sin(angle) * this.speed * dt); if (checkCollision(this, player)) player.takeDamage(); 
+            } else if (this.type === 'ranged') { 
+                const distToPlayer = Math.hypot(player.x - this.x, player.y - this.y); let mx = 0, my = 0; const angle = Math.atan2(player.y - this.y, player.x - this.x); 
+                if (distToPlayer < 250) { mx = -Math.cos(angle) * this.speed * 0.5; my = -Math.sin(angle) * this.speed * 0.5; } else if (distToPlayer > 400) { mx = Math.cos(angle) * this.speed; my = Math.sin(angle) * this.speed; } 
+                this.move(mx * dt, my * dt); this.timer -= dt; if (this.timer <= 0) { if (isLineOfSightClear(this, player)) { const angleToP = Math.atan2(player.y + player.height/2 - (this.y + player.height/2), player.x + player.width/2 - (this.x + player.width/2)); const bounce = gameState.roomLevel >= 18 ? 1 : 0; 
+                playSound(sfxMainShot);
+                enemyBullets.push(new Bullet(this.x + this.width/2, this.y + this.height/2, Math.cos(angleToP) * config.enemyBulletSpeed, Math.sin(angleToP) * config.enemyBulletSpeed, false, bounce, 1, '#ff7f50')); if (gameState.roomLevel >= 18) { const angleBack = angleToP + Math.PI; enemyBullets.push(new Bullet(this.x + this.width/2, this.y + this.height/2, Math.cos(angleBack) * config.enemyBulletSpeed, Math.sin(angleBack) * config.enemyBulletSpeed, false, bounce, 1, '#ff7f50')); } this.timer = config.enemyShootInterval; } else { this.timer = 30; } } 
+            } 
+        } 
+        move(dx, dy) { this.x += dx; if (checkWallCollision(this)) this.x -= dx; this.y += dy; if (checkWallCollision(this)) this.y -= dy; } 
+        
+        fireCardinalShot(bounces = 0) { 
+            playSound(sfxAlienShot);
+            const dirs = [[0, -1], [0, 1], [1, 0], [-1, 0]]; const cx = this.x + this.width/2; const cy = this.y + this.height/2; dirs.forEach(dir => { enemyBullets.push(new Bullet(cx, cy, dir[0] * config.enemySlowBulletSpeed, dir[1] * config.enemySlowBulletSpeed, false, bounces, 1, '#0be881')); }); 
+        } 
+        
+        doTeleport() { 
+            playSound(sfxTeleport);
+            for(let i=0; i<10; i++) { 
+                const rx = Math.random() * (canvas.width - this.width); const ry = Math.random() * (canvas.height - 150) + 50; 
+                if (!checkWallCollision({x:rx, y:ry, width:this.width, height:this.height}) && Math.hypot(rx - player.x, ry - player.y) > 100) { 
+                    this.x = rx; this.y = ry; 
+                    this.shootMagierProjectiles();
+                    break; 
+                } 
+            } 
+        } 
+        shootMagierProjectiles() {
+            playSound(sfxMagierShot);
+            for(let i=0; i<2; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                enemyBullets.push(new Bullet(this.x + this.width/2, this.y + this.height/2, Math.cos(angle) * config.enemyBulletSpeed, Math.sin(angle) * config.enemyBulletSpeed, false, 1, 1, '#0000ff'));
+            }
+        }
+        draw() { 
+            if (this.type === 'teleport') {
+                const barWidth = this.width;
+                const progress = Math.max(0, (120 - this.timer) / 120); 
+                ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(this.x, this.y - 12, barWidth, 4);
+                ctx.fillStyle = '#f1c40f'; ctx.fillRect(this.x, this.y - 12, barWidth * progress, 4);
+            }
+            if (this.img && this.img.complete) { ctx.drawImage(this.img, this.x, this.y, this.width, this.height); } else { ctx.fillStyle = 'red'; ctx.fillRect(this.x, this.y, this.width, this.height); }
+            ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(this.x, this.y - 6, this.width, 4); 
+            ctx.fillStyle = '#2ed573'; ctx.fillRect(this.x, this.y - 6, this.width * (this.health / this.maxHealth), 4); 
+        } 
+    }
+    
+    class Bullet { 
+        constructor(x, y, vx, vy, isPlayerBullet, bounces = 0, damage = 1, colorOverride = null) { 
+            this.x = x; this.y = y; this.vx = vx; this.vy = vy; this.isPlayerBullet = isPlayerBullet; this.bounces = bounces; this.damage = damage; 
+            this.size = isPlayerBullet ? config.bulletSize : config.bulletSize + 2; 
+            if (colorOverride) { this.color = colorOverride; } else { this.color = isPlayerBullet ? '#ff3838' : '#ff7f50'; }
+            this.markedForDeletion = false; 
+        } 
+        update(dt) { 
+            this.x += this.vx * dt; if (this.x < 0 || this.x > canvas.width) this.markedForDeletion = true; 
+            if (checkWallCollision({x: this.x-this.size/2, y: this.y-this.size/2, width: this.size, height: this.size})) { if (this.bounces > 0) { this.x -= this.vx * dt; this.vx = -this.vx; this.bounces--; } else { this.markedForDeletion = true; } } 
+            this.y += this.vy * dt; if (this.y < 0 || this.y > canvas.height) this.markedForDeletion = true; 
+            if (checkWallCollision({x: this.x-this.size/2, y: this.y-this.size/2, width: this.size, height: this.size})) { if (this.bounces > 0) { this.y -= this.vy * dt; this.vy = -this.vy; this.bounces--; } else { this.markedForDeletion = true; } } 
+            if (this.isPlayerBullet) { enemies.forEach(enemy => { if (checkCollision({x:this.x-this.size/2, y:this.y-this.size/2, width:this.size, height:this.size}, enemy)) { enemy.health -= this.damage; this.markedForDeletion = true; enemy.x += this.vx * 0.1; enemy.y += this.vy * 0.1; } }); } 
+            else { if (checkCollision({x:this.x-this.size/2, y:this.y-this.size/2, width:this.size, height:this.size}, player)) { player.takeDamage(); this.markedForDeletion = true; } } 
+        } 
+        draw() { ctx.fillStyle = this.color; ctx.beginPath(); ctx.arc(this.x, this.y, this.size/2, 0, Math.PI * 2); ctx.fill(); } 
+    }
+    
+    class Door { constructor() { this.width = config.doorSize; this.height = config.doorSize / 2; this.x = (canvas.width / 2) - (this.width / 2); this.y = 0; this.isOpen = false; } update() { if (this.isOpen && checkCollision(player, this)) nextRoom(); } draw() { if (!this.isOpen) return; ctx.fillStyle = '#0be881'; ctx.fillRect(this.x, this.y, this.width, this.height); ctx.fillStyle = 'black'; ctx.font = "bold 16px Arial"; ctx.textAlign = "center"; ctx.fillText("EXIT", this.x + this.width/2, this.y + 25); } }
+
+    function checkCollision(r1, r2) { return (r1.x < r2.x + r2.width && r1.x + r1.width > r2.x && r1.y < r2.y + r2.height && r1.y + r1.height > r2.y); }
+    function checkWallCollision(rect) { for (const wall of walls) { if (checkCollision(rect, wall)) return true; } return false; }
+    function isLineOfSightClear(obj1, obj2) { const x1 = obj1.x + obj1.width/2; const y1 = obj1.y + obj1.height/2; const x2 = obj2.x + obj2.width/2; const y2 = obj2.y + obj2.height/2; const steps = Math.hypot(x2-x1, y2-y1) / (config.wallGridSize / 2); for(let i = 1; i < steps - 1; i++) { const checkX = x1 + (x2-x1) * (i/steps); const checkY = y1 + (y2-y1) * (i/steps); for (const wall of walls) { if(checkX > wall.x && checkX < wall.x + wall.width && checkY > wall.y && checkY < wall.y + wall.height) return false; } } return true; }
+    function updateHeartDisplay() { let h = ""; for(let i=0; i<player.health; i++) h += "❤"; heartsDisplay.innerText = h; }
+    function updateSkillsDisplay() { let text = ""; if (player.skills.multishot) text += "+2 "; if (player.skills.ricochet) text += "RICO "; if (player.skills.sideshot) text += "+2 "; if (player.damageMultiplier > 1.0) text += "DMG+" + Math.round(player.damageMultiplier*10)/10 + " "; skillsDisplay.innerText = text; }
+    function showSkillText(msg) { const div = document.createElement('div'); div.innerText = msg; div.style.position = 'absolute'; div.style.top = '40%'; div.style.left = '50%'; div.style.transform = 'translate(-50%, -50%)'; div.style.fontSize = '30px'; div.fontWeight = 'bold'; div.style.color = '#ffd32a'; div.style.textShadow = '2px 2px 0 black'; div.style.pointerEvents = 'none'; div.style.zIndex = '20'; document.body.appendChild(div); setTimeout(() => div.remove(), 2000); }
+    
+    function endGame() { 
+        gameState.gameOver = true; joystick.active = false; 
+        bgMusic.pause();
+        if (gameState.roomLevel > storedHighscore) localStorage.setItem('archero_highscore', gameState.roomLevel); 
+        
+        finalScoreDisplay.innerText = "Erreicht: Raum " + gameState.roomLevel;
+        restartOverlay.style.display = 'flex';
+    }
+    
+    function generateLevel() { 
+        walls = []; 
+        const borderTex = wallImages.length > 0 ? wallImages[Math.floor(Math.random() * wallImages.length)] : null;
+        walls.push(new Wall(0, 0, canvas.width/2 - config.doorSize/2, config.borderThickness, borderTex)); 
+        walls.push(new Wall(canvas.width/2 + config.doorSize/2, 0, canvas.width/2 - config.doorSize/2, config.borderThickness, borderTex)); 
+        walls.push(new Wall(0, canvas.height - config.borderThickness, canvas.width, config.borderThickness, borderTex)); 
+        walls.push(new Wall(0, 0, config.borderThickness, canvas.height, borderTex)); 
+        walls.push(new Wall(canvas.width - config.borderThickness, 0, config.borderThickness, canvas.height, borderTex)); 
+        const cols = Math.floor(canvas.width / config.wallGridSize); const rows = Math.floor(canvas.height / config.wallGridSize); 
+        for (let r = 0; r < rows; r++) { for (let c = 0; c < cols; c++) { 
+            if (r > rows - 5 && c > cols/2 - 3 && c < cols/2 + 3) continue; 
+            if (r < 3 && c > cols/2 - 2 && c < cols/2 + 2) continue; 
+            if (r === 0 || r === rows -1 || c === 0 || c === cols - 1) continue; 
+            let wallChance = 0.12 + Math.min(gameState.roomLevel * 0.01, 0.20); 
+            if (Math.random() < wallChance) {
+                const rndTex = wallImages.length > 0 ? wallImages[Math.floor(Math.random() * wallImages.length)] : null;
+                walls.push(new Wall(c * config.wallGridSize, r * config.wallGridSize, config.wallGridSize, config.wallGridSize, rndTex)); 
+            }
+        }} 
+    }
+    function spawnEnemies(count) { let spawned = 0; let attempts = 0; const availableTypes = ['melee']; if (gameState.roomLevel >= 3) availableTypes.push('ranged'); if (gameState.roomLevel >= 5) availableTypes.push('teleport'); if (gameState.roomLevel >= 10) availableTypes.push('cardinal'); while(spawned < count && attempts < 200) { attempts++; const x = Math.random() * (canvas.width - config.enemyWidth); const y = Math.random() * (canvas.height - 250) + 50; if (checkWallCollision({x, y, width: config.enemyWidth, height: config.enemyHeight})) continue; if (Math.hypot(x - player.x, y - player.y) < 150) continue; const type = availableTypes[Math.floor(Math.random() * availableTypes.length)]; enemies.push(new Enemy(x, y, type)); spawned++; } }
+    function nextRoom() { 
+        gameState.roomLevel++; 
+        const ramp = Math.min(gameState.roomLevel, 30) / 30; 
+        gameState.globalSpeed = 1.0 + (ramp * 0.3); 
+        roomCountDisplay.innerText = gameState.roomLevel; 
+        player.x = canvas.width / 2 - config.hitboxSize / 2; player.y = canvas.height - 120; 
+        playerBullets = []; enemyBullets = []; enemies = []; items = []; door.isOpen = false; 
+        generateLevel(); 
+        const heartRooms = [7, 11, 15, 19, 22]; const dmgRooms = [7, 13, 19]; 
+        if (heartRooms.includes(gameState.roomLevel)) items.push(new ItemPickup(canvas.width/2 - 15, canvas.height/2, 'heart')); 
+        if (dmgRooms.includes(gameState.roomLevel)) items.push(new ItemPickup(canvas.width/2 + 35, canvas.height/2, 'damage')); 
+        if (gameState.roomLevel === 5) items.push(new ItemPickup(canvas.width/2 - 15, canvas.height/2, 'multishot')); 
+        if (gameState.roomLevel === 10) items.push(new ItemPickup(canvas.width/2 - 15, canvas.height/2, 'ricochet')); 
+        if (gameState.roomLevel === 17) items.push(new ItemPickup(canvas.width/2 - 15, canvas.height/2, 'sideshot')); 
+        const enemyCount = 2 + Math.floor(gameState.roomLevel * 0.6); spawnEnemies(enemyCount); 
+    }
+    
+    let player = new Player(canvas.width / 2 - config.hitboxSize / 2, canvas.height - 120);
+    let playerBullets = []; let enemyBullets = []; let enemies = []; let walls = []; let items = []; let door = new Door();
+    updateHeartDisplay(); generateLevel(); spawnEnemies(3);
+
+    let lastTime = 0;
+    function gameLoop(timestamp) {
+        if (!lastTime) lastTime = timestamp;
+        const deltaTime = timestamp - lastTime;
+        lastTime = timestamp;
+        const dtFactor = Math.min(deltaTime / 16.67, 3.0);
+        const finalDt = dtFactor * gameState.globalSpeed;
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        if (gameState.gameOver) {
+            walls.forEach(w => w.draw());
+            player.draw();
+            return; 
+        }
+
+        updateUiPositions();
+
+        if (gameState.isMenu) {
+            const btnGrad = ctx.createLinearGradient(startButton.x, startButton.y, startButton.x, startButton.y + startButton.h);
+            btnGrad.addColorStop(0, '#ffd32a'); btnGrad.addColorStop(1, '#ff7f50'); 
+            ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = 15; ctx.shadowOffsetY = 5;
+            ctx.beginPath(); ctx.roundRect(startButton.x, startButton.y, startButton.w, startButton.h, startButton.radius); ctx.fillStyle = btnGrad; ctx.fill();
+            const shineGrad = ctx.createLinearGradient(startButton.x, startButton.y, startButton.x, startButton.y + 30); shineGrad.addColorStop(0, 'rgba(255,255,255,0.4)'); shineGrad.addColorStop(1, 'rgba(255,255,255,0)'); ctx.fillStyle = shineGrad; ctx.fill();
+            ctx.lineWidth = 2; ctx.strokeStyle = '#fff'; ctx.stroke();
+            ctx.shadowBlur = 0; ctx.shadowOffsetY = 0; 
+            ctx.fillStyle = 'white'; ctx.font = "bold 30px Segoe UI"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("START", startButton.x + startButton.w/2, startButton.y + startButton.h/2);
+            ctx.beginPath(); ctx.arc(infoButton.x, infoButton.y, infoButton.radius, 0, Math.PI * 2); ctx.fillStyle = 'rgba(255, 255, 255, 0.2)'; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = 'white'; ctx.stroke(); ctx.fillStyle = 'white'; ctx.font = "bold 20px Arial"; ctx.fillText("?", infoButton.x, infoButton.y + 1); 
+            requestAnimationFrame(gameLoop); return;
+        }
+
+        player.update(finalDt); playerBullets.forEach(b => b.update(finalDt)); enemyBullets.forEach(b => b.update(finalDt)); enemies.forEach(e => e.update(finalDt)); items.forEach(i => i.update(finalDt)); door.update();
+        playerBullets = playerBullets.filter(b => !b.markedForDeletion); enemyBullets = enemyBullets.filter(b => !b.markedForDeletion); enemies = enemies.filter(e => e.health > 0); items = items.filter(i => !i.markedForDeletion);
+        if (enemies.length === 0 && !door.isOpen) door.isOpen = true;
+
+        walls.forEach(w => w.draw()); items.forEach(i => i.draw()); door.draw();
+        playerBullets.forEach(b => b.draw()); enemyBullets.forEach(b => b.draw()); enemies.forEach(e => e.draw()); player.draw(); joystick.draw();
+        
+        requestAnimationFrame(gameLoop);
+    }
+</script>
+</body>
+</html>
